@@ -1,0 +1,48 @@
+# Infrastructure only: PostgreSQL + Redis.
+# Use this to spin up backing services when running the app outside Docker
+# (e.g. `uv run uvicorn src.main:app` on the host), or as the database/cache
+# layer on a dedicated server.
+#   docker compose -f docker-compose.server.yaml up -d
+name: valor-vault
+
+networks:
+  valor_net:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    networks: [valor_net]
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-valor}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-valor}
+      POSTGRES_DB: ${POSTGRES_DB:-valor}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-valor} -d ${POSTGRES_DB:-valor}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    networks: [valor_net]
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped

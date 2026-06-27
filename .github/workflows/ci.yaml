@@ -1,0 +1,105 @@
+name: backend-ci
+
+on:
+  push:
+    branches: [main]
+    paths: ["**", ".github/workflows/ci.yaml"]
+  pull_request:
+    paths: ["**", ".github/workflows/ci.yaml"]
+  workflow_dispatch:
+
+concurrency:
+  group: backend-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: .
+
+jobs:
+  quality:
+    name: lint · format · types · tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v3
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Ruff lint
+        run: uv run ruff check .
+
+      - name: Ruff format check
+        run: uv run ruff format --check .
+
+      - name: Mypy
+        run: uv run mypy src
+
+      - name: Pytest (unit + integration via testcontainers)
+        run: uv run pytest -v
+
+  compose-config:
+    name: validate compose
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Write CI env file
+        run: |
+          printf '%s\n' \
+            "POSTGRES_USER=${POSTGRES_USER}" \
+            "POSTGRES_PASSWORD=${POSTGRES_PASSWORD}" \
+            "POSTGRES_DB=${POSTGRES_DB}" \
+            "JWT_SECRET=${JWT_SECRET}" \
+            "APP_PORT=${APP_PORT}" \
+            > .env.ci
+        env:
+          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          APP_PORT: ${{ secrets.APP_PORT }}
+      - name: Validate compose files
+        run: |
+          docker compose -f docker-compose.server.yaml --env-file .env.ci config --quiet
+          docker compose -f docker-compose.yaml --env-file .env.ci config --quiet
+
+  docker-build:
+    name: docker build (test-gated)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  ci-success:
+    name: ci-success
+    if: always()
+    needs: [quality, compose-config, docker-build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Aggregate
+        run: |
+          for r in '${{ needs.quality.result }}' '${{ needs.compose-config.result }}' '${{ needs.docker-build.result }}'; do
+            case "$r" in success) ;; *) echo "::error::job failed ($r)"; exit 1 ;; esac
+          done
+          echo "All backend CI jobs passed."

@@ -1,0 +1,16 @@
+from __future__ import annotations
+
+from typing import Protocol, runtime_checkable
+
+
+@runtime_checkable
+class ProductCache(Protocol):
+    async def get(self, key: str) -> str | None: ...
+    async def set(self, key: str, value: str) -> None: ...
+
+
+@runtime_checkable
+class LoginThrottle(Protocol):
+    async def is_locked(self, username: str) -> bool: ...
+    async def record_failure(self, username: str) -> int: ...
+    async def reset(self, username: str) -> None: ...
