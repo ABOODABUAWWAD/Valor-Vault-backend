@@ -1,0 +1,81 @@
+# Complete application stack — single command to run everything locally.
+#   docker compose up --build          # foreground
+#   docker compose up --build -d       # detached
+#   docker compose --env-file .env.prod up -d --build   # production env
+name: valor-vault
+
+networks:
+  valor_net:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+
+x-app-env: &app-env
+  DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-valor}:${POSTGRES_PASSWORD:-valor}@postgres:5432/${POSTGRES_DB:-valor}
+  REDIS_URL: redis://redis:6379/0
+  JWT_SECRET: ${JWT_SECRET:-dev-secret-change-me-0000000000000000000000}
+  APP_ENV: ${APP_ENV:-development}
+  PORT: "8000"
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    networks: [valor_net]
+    ports:
+      - "${APP_PORT:-8000}:8000"
+    environment:
+      <<: *app-env
+    volumes:
+      - ./src:/app/src
+      - ./migrations:/app/migrations
+      - ./scripts:/app/scripts
+    command: ["sh", "scripts/init_db.sh", "--reload"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/healthz').status==200 else 1)\""]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 45s
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    networks: [valor_net]
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-valor}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-valor}
+      POSTGRES_DB: ${POSTGRES_DB:-valor}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-valor} -d ${POSTGRES_DB:-valor}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    networks: [valor_net]
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped

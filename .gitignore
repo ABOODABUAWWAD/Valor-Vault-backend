@@ -1,0 +1,92 @@
+# ==========================================
+# uv & Virtual Environments
+# ==========================================
+# uv's default virtual environment directory
+.venv/
+# If you explicitly name your venv something else
+venv/
+ENV/
+env/
+
+# uv lockfile 
+# NOTE: Generally, you SHOULD commit uv.lock to version control for applications (like FastAPI).
+# Uncomment the line below ONLY if you are building a library, not a deployed app.
+# uv.lock
+
+# ==========================================
+# FastAPI / Application Specific
+# ==========================================
+# Environment variables containing sensitive secrets (DB credentials, API keys)
+.env
+.env.*
+!.env.example
+
+# Database files (if using local SQLite for development)
+*.db
+*.sqlite3
+
+# Log files
+*.log
+logs/
+
+# ==========================================
+# Python Bytecode & Cache
+# ==========================================
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / Packaging
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# ==========================================
+# Testing & Coverage
+# ==========================================
+.htmlcov/
+.tox/
+.nosenv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+精度/
+.coverage
+.coverage.*
+nosetests.xml
+coverage.xml
+*.cover
+.mutmut-cache
+
+# ==========================================
+# IDEs & Editors
+# ==========================================
+# VS Code
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# PyCharm / IntelliJ
+.idea/
+
+# Editor backups
+*.swp
+*.swo
+*~
+.DS_Store
