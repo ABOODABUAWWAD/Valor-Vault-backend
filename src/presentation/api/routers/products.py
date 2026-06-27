@@ -21,9 +21,7 @@ async def list_products(
     _: CurrentUser = Depends(get_current_user),  # noqa: B008
     service: ProductService = Depends(get_product_service),  # noqa: B008
 ) -> PaginatedProducts:
-    page_result = await service.list_products(
-        page, page_size, location, search, ids or None
-    )
+    page_result = await service.list_products(page, page_size, location, search, ids or None)
     return PaginatedProducts.from_page(page_result)
 
 

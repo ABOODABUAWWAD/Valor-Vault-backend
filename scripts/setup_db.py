@@ -41,9 +41,7 @@ async def _ensure_database(database_url: str) -> None:
     admin_dsn, db_name = _parse_url(database_url)
     conn = await asyncpg.connect(admin_dsn)
     try:
-        exists = await conn.fetchval(
-            "SELECT 1 FROM pg_database WHERE datname = $1", db_name
-        )
+        exists = await conn.fetchval("SELECT 1 FROM pg_database WHERE datname = $1", db_name)
         if exists:
             print(f"[setup] Database '{db_name}' already exists — skipping CREATE.")
         else:
